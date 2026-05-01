@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin-panel</title>
+    <link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+    <header><h1>🛠️ ShopHub Admin Panel</h1></header>
+
+  <div class="container">
+    <a href="index.html" style="color:#3498db; text-decoration:none;">← Back to Store</a>
+
+    <div class="admin-panel">
+      <!-- Left Side: Add Product -->
+      <div class="card">
+        <h2 id="formTitle">Add New Product</h2>
+        <form id="productForm">
+          <input type="hidden" id="editId">
+
+          <div class="form-group">
+            <label>Product Name</label>
+            <input type="text" id="name" required>
+          </div>
+
+          <div class="form-group">
+            <label>Price (₦)</label>
+            <input type="number" id="price" required>
+          </div>
+
+          <div class="form-group">
+            <label>Product Image</label>
+            <div class="image-upload-area" id="uploadArea">
+              <p>Click to upload image</p>
+              <input type="file" id="imageInput" accept="image/*" hidden>
+            </div>
+            <img id="imagePreview" class="image-preview">
+          </div>
+
+          <div class="form-group">
+            <label>Category</label>
+            <select id="category" required></select>
+          </div>
+
+          <button type="submit" class="btn-primary" id="submitBtn">Add Product</button>
+        </form>
+      </div>
+
+      <!-- Right Side: Manage Categories + Products -->
+      <div class="card">
+        <h2>Manage Categories</h2>
+        <div class="form-group">
+          <input type="text" id="newCategory" placeholder="New category name (e.g. Shoes)" style="margin-bottom:8px;">
+          <button onclick="addNewCategory()" class="btn-primary" style="width:auto;">Add Category</button>
+        </div>
+
+        <div id="categoriesList"></div>
+
+        <hr style="margin:25px 0;">
+
+        <h2>All Products (<span id="productCount">0</span>)</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Image</th>
+              <th>Name</th>
+              <th>Price</th>
+              <th>Category</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="notification" id="notification"></div>
+
+  <script>
+    let products = [];
+    let categories = ["electronics", "accessories"];
+    let editingId = null;
+    let currentImageBase64 = null;
+
+    // Load data
+    function loadData() {
+      const savedProducts = localStorage.getItem('shopProducts');
+      const savedCategories = localStorage.getItem('shopCategories');
+
+      if (savedProducts) products = JSON.parse(savedProducts);
+      if (savedCategories) categories = JSON.parse(savedCategories);
+
+      // Default categories if empty
+      if (categories.length === 0) categories = ["electronics", "accessories"];
+
+      renderCategories();
+      renderCategorySelect();
+      renderTable();
+    }
+
+    function saveData() {
+      localStorage.setItem('shopProducts', JSON.stringify(products));
+      localStorage.setItem('shopCategories', JSON.stringify(categories));
+    }
+
+    function renderCategories() {
+      const list = document.getElementById('categoriesList');
+      list.innerHTML = '<strong>Existing Categories:</strong><br><br>';
+
+      categories.forEach((cat, index) => {
+        const div = document.createElement('div');
+        div.className = 'category-item';
+        div.innerHTML = `
+          <span>${cat}</span>
+          <button class="btn-delete" onclick="deleteCategory(${index})">Delete</button>
+        `;
+        list.appendChild(div);
+      });
+    }
+
+    function renderCategorySelect() {
+      const select = document.getElementById('category');
+      select.innerHTML = '';
+
+      categories.forEach(cat => {
+        const option = document.createElement('option');
+        option.value = cat;
+        option.textContent = cat.charAt(0).toUpperCase() + cat.slice(1);
+        select.appendChild(option);
+      });
+    }
+
+    function addNewCategory() {
+      const input = document.getElementById('newCategory');
+      let newCat = input.value.trim().toLowerCase();
+
+      if (!newCat) return showNotification("Enter a category name", "red");
+      if (categories.includes(newCat)) return showNotification("Category already exists", "red");
+
+      categories.push(newCat);
+      saveData();
+      renderCategories();
+      renderCategorySelect();
+      input.value = '';
+      showNotification("Category added successfully!", "green");
+    }
+
+    window.deleteCategory = function(index) {
+      if (confirm("Delete this category? Products in this category will still exist but category will be removed.")) {
+        categories.splice(index, 1);
+        saveData();
+        renderCategories();
+        renderCategorySelect();
+      }
+    };
+
+    // Image Upload
+    document.getElementById('uploadArea').addEventListener('click', () => {
+      document.getElementById('imageInput').click();
+    });
+
+    document.getElementById('imageInput').addEventListener('change', function(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(ev) {
+        currentImageBase64 = ev.target.result;
+        document.getElementById('imagePreview').src = currentImageBase64;
+        document.getElementById('imagePreview').style.display = 'block';
+      };
+      reader.readAsDataURL(file);
+    });
+
+    // Add/Edit Product
+    document.getElementById('productForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+
+      const name = document.getElementById('name').value.trim();
+      const price = parseInt(document.getElementById('price').value);
+      const category = document.getElementById('category').value;
+
+      if (!name || !price || !category) {
+        return showNotification("Please fill all fields", "red");
+      }
+      if (!currentImageBase64 && !editingId) {
+        return showNotification("Please upload an image", "red");
+      }
+
+      if (editingId) {
+        const product = products.find(p => p.id === editingId);
+        if (product) {
+          product.name = name;
+          product.price = price;
+          product.category = category;
+          if (currentImageBase64) product.image = currentImageBase64;
+        }
+        showNotification("Product updated!", "green");
+        editingId = null;
+        document.getElementById('formTitle').textContent = "Add New Product";
+        document.getElementById('submitBtn').textContent = "Add Product";
+      } else {
+        products.push({
+          id: Date.now(),
+          name: name,
+          price: price,
+          image: currentImageBase64,
+          category: category
+        });
+        showNotification("Product added successfully!", "green");
+      }
+
+      saveData();
+      renderTable();
+      resetForm();
+    });
+
+    function resetForm() {
+      document.getElementById('productForm').reset();
+      document.getElementById('imagePreview').style.display = 'none';
+      currentImageBase64 = null;
+    }
+
+    window.editProduct = function(id) {
+      const product = products.find(p => p.id === id);
+      if (!product) return;
+
+      editingId = id;
+      document.getElementById('name').value = product.name;
+      document.getElementById('price').value = product.price;
+      document.getElementById('category').value = product.category;
+      
+      document.getElementById('imagePreview').src = product.image;
+      document.getElementById('imagePreview').style.display = 'block';
+      currentImageBase64 = product.image;
+
+      document.getElementById('formTitle').textContent = "Edit Product";
+      document.getElementById('submitBtn').textContent = "Update Product";
+      window.scrollTo(0, 0);
+    };
+
+    window.deleteProduct = function(id) {
+      if (confirm("Delete this product?")) {
+        products = products.filter(p => p.id !== id);
+        saveData();
+        renderTable();
+        showNotification("Product deleted", "red");
+      }
+    };
+
+    function renderTable() {
+      const tbody = document.getElementById('tableBody');
+      tbody.innerHTML = '';
+
+      products.forEach(product => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td><img src="${product.image}" class="product-image"></td>
+          <td><strong>${product.name}</strong></td>
+          <td>₦${product.price.toLocaleString()}</td>
+          <td>${product.category}</td>
+          <td class="actions">
+            <button class="btn-edit" onclick="editProduct(${product.id})">Edit</button>
+            <button class="btn-delete" onclick="deleteProduct(${product.id})">Delete</button>
+          </td>
+        `;
+        tbody.appendChild(row);
+      });
+
+      document.getElementById('productCount').textContent = products.length;
+    }
+
+    function showNotification(msg, color) {
+      const notif = document.getElementById('notification');
+      notif.textContent = msg;
+      notif.style.background = color;
+      notif.style.display = 'block';
+      setTimeout(() => notif.style.display = 'none', 3000);
+    }
+
+    // Initialize
+    loadData();
+  </script>
+</body>
+</html>

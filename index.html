@@ -3,26 +3,33 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <title>Smart Shop</title>
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
 
-  <header>
+ <header>
     <div class="container header-content">
-      <h1>ShopHub</h1>
+      <h1>Smart Shop</h1>
       <div class="cart-icon" id="cartIcon">
-        🛒
-        <span class="cart-count" id="cartCount">0</span>
+        🛒 <span class="cart-count" id="cartCount">0</span>
       </div>
     </div>
   </header>
 
   <div class="container">
-    <h2 style="margin: 30px 0 20px;">Our Products</h2>
-    <div class="products" id="productsContainer">
-      <!-- Products will be added by JavaScript -->
+    <h2 style="margin: 30px 0 15px;">Our Products</h2>
+
+    <div class="controls">
+      <div class="search-bar">
+        <input type="text" id="searchInput" placeholder="Search products...">
+      </div>
+
+      <!-- Dynamic Categories will be loaded here -->
+      <div class="categories" id="categoriesContainer"></div>
     </div>
+
+    <div class="products" id="productsContainer"></div>
   </div>
 
   <!-- Cart Sidebar -->
@@ -32,65 +39,85 @@
       <h2>Your Cart</h2>
       <span class="close-cart" id="closeCart">✕</span>
     </div>
-    
     <div id="cartItems"></div>
-
-    <div class="cart-total">
-      Total: ₦<span id="cartTotal">0</span>
-    </div>
-
+    <div class="cart-total">Total: ₦<span id="cartTotal">0</span></div>
     <button class="place-order" id="placeOrderBtn">Place Order via WhatsApp</button>
   </div>
 
-  <script>
-    // Sample Products
-    const products = [
-      {
-        id: 1,
-        name: "Wireless Headphones",
-        price: 45000,
-        image: "https://picsum.photos/id/60/400/300"
-      },
-      {
-        id: 2,
-        name: "Smart Watch Pro",
-        price: 85000,
-        image: "https://picsum.photos/id/201/400/300"
-      },
-      {
-        id: 3,
-        name: "Laptop Backpack",
-        price: 25000,
-        image: "https://picsum.photos/id/367/400/300"
-      },
-      {
-        id: 4,
-        name: "Power Bank 20000mAh",
-        price: 18000,
-        image: "https://picsum.photos/id/180/400/300"
-      },
-      {
-        id: 5,
-        name: "Bluetooth Speaker",
-        price: 32000,
-        image: "https://picsum.photos/id/251/400/300"
-      },
-      {
-        id: 6,
-        name: "Gaming Mouse",
-        price: 15000,
-        image: "https://picsum.photos/id/367/400/300"
-      }
-    ];
+  <!-- Thank You Modal -->
+  <div class="modal" id="thankYouModal">
+    <h2>✅ Order Sent Successfully!</h2>
+    <p>Thank you for shopping with us.<br>Your order has been sent to WhatsApp.</p>
+    <button onclick="closeModal()" style="margin-top:20px; padding:12px 25px; background:#27ae60; color:white; border:none; border-radius:8px; cursor:pointer;">
+      Close
+    </button>
+  </div>
+  <div class="row">
+    <div class="footer">
+        <p>world Gurus Tech</p>
+    </div>
+  </div>
 
+  <script>
+    let products = [];
     let cart = [];
+    let categories = [];
+
+    // Load Products and Categories from localStorage
+    function loadData() {
+      const savedProducts = localStorage.getItem('shopProducts');
+      const savedCategories = localStorage.getItem('shopCategories');
+
+      if (savedProducts) products = JSON.parse(savedProducts);
+      if (savedCategories) categories = JSON.parse(savedCategories);
+
+      // Fallback if empty
+      if (categories.length === 0) categories = ["electronics", "accessories"];
+      if (products.length === 0) {
+        products = [
+          { id: 1, name: "Wireless Headphones", price: 45000, image: "https://picsum.photos/id/60/400/300", category: "electronics" }
+        ];
+      }
+    }
+
+    function loadCart() {
+      const savedCart = localStorage.getItem('shopCart');
+      if (savedCart) cart = JSON.parse(savedCart);
+    }
+
+    function saveCart() {
+      localStorage.setItem('shopCart', JSON.stringify(cart));
+    }
+
+    // Render Dynamic Category Buttons
+    function renderCategories() {
+      const container = document.getElementById('categoriesContainer');
+      container.innerHTML = `<button class="cat-btn active" data-category="all">All</button>`;
+
+      categories.forEach(cat => {
+        const btn = document.createElement('button');
+        btn.className = 'cat-btn';
+        btn.dataset.category = cat;
+        btn.textContent = cat.charAt(0).toUpperCase() + cat.slice(1);
+        container.appendChild(btn);
+      });
+
+      // Add click event to all category buttons
+      document.querySelectorAll('.cat-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          filterProducts();
+        });
+      });
+    }
 
     // Render Products
-    function renderProducts() {
+    function renderProducts(filteredProducts) {
       const container = document.getElementById('productsContainer');
       container.innerHTML = '';
 
-      products.forEach(product => {
+      filteredProducts.forEach(product => {
         const card = document.createElement('div');
         card.className = 'product-card';
         card.innerHTML = `
@@ -98,44 +125,39 @@
           <div class="product-info">
             <h3>${product.name}</h3>
             <p class="price">₦${product.price.toLocaleString()}</p>
-            <button class="add-to-cart" onclick="addToCart(${product.id})">
-              Add to Cart
-            </button>
+            <button class="add-to-cart" onclick="addToCart(${product.id})">Add to Cart</button>
           </div>
         `;
         container.appendChild(card);
       });
     }
 
-    // Add to Cart
     window.addToCart = function(productId) {
       const product = products.find(p => p.id === productId);
-      const existingItem = cart.find(item => item.id === productId);
+      if (!product) return;
 
-      if (existingItem) {
-        existingItem.quantity += 1;
+      const existing = cart.find(item => item.id === productId);
+      if (existing) {
+        existing.quantity += 1;
       } else {
-        cart.push({
-          ...product,
-          quantity: 1
-        });
+        cart.push({ ...product, quantity: 1 });
       }
 
+      saveCart();
       updateCart();
-      showNotification(`${product.name} added to cart!`);
-    }
+      showNotification(`${product.name} added to cart`);
+    };
 
     function updateCart() {
-      // Update count
       const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
       document.getElementById('cartCount').textContent = totalItems;
 
-      // Render cart items
       const cartItemsContainer = document.getElementById('cartItems');
       cartItemsContainer.innerHTML = '';
 
       if (cart.length === 0) {
         cartItemsContainer.innerHTML = '<p style="text-align:center; padding:40px; color:#777;">Your cart is empty</p>';
+        document.getElementById('cartTotal').textContent = '0';
         return;
       }
 
@@ -150,7 +172,7 @@
                 <button class="qty-btn" onclick="changeQuantity(${index}, -1)">−</button>
                 <span>${item.quantity}</span>
                 <button class="qty-btn" onclick="changeQuantity(${index}, 1)">+</button>
-                <button onclick="removeFromCart(${index})" style="margin-left: auto; color: #e74c3c; background:none; border:none; cursor:pointer;">Remove</button>
+                <button onclick="removeFromCart(${index})" style="margin-left:auto; color:#e74c3c; background:none; border:none; cursor:pointer;">Remove</button>
               </div>
             </div>
           </div>
@@ -158,7 +180,6 @@
         cartItemsContainer.innerHTML += itemHTML;
       });
 
-      // Update total
       const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
       document.getElementById('cartTotal').textContent = total.toLocaleString();
     }
@@ -166,32 +187,82 @@
     window.changeQuantity = function(index, change) {
       cart[index].quantity += change;
       if (cart[index].quantity < 1) cart[index].quantity = 1;
+      saveCart();
       updateCart();
-    }
+    };
 
     window.removeFromCart = function(index) {
       cart.splice(index, 1);
+      saveCart();
       updateCart();
-    }
+    };
 
-    // Show Notification
     function showNotification(message) {
-      const notification = document.createElement('div');
-      notification.style.cssText = `
-        position: fixed; top: 20px; right: 20px; background: #27ae60; color: white; 
-        padding: 15px 25px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-        z-index: 2000; font-weight: bold;
-      `;
-      notification.textContent = message;
-      document.body.appendChild(notification);
-
-      setTimeout(() => {
-        notification.style.opacity = '0';
-        setTimeout(() => notification.remove(), 300);
-      }, 2000);
+      const notif = document.createElement('div');
+      notif.style.cssText = `position:fixed; top:20px; right:20px; background:#27ae60; color:white; padding:15px 25px; border-radius:8px; z-index:2000;`;
+      notif.textContent = message;
+      document.body.appendChild(notif);
+      setTimeout(() => notif.remove(), 2500);
     }
 
-    // Open & Close Cart
+    // WhatsApp Order
+    document.getElementById('placeOrderBtn').addEventListener('click', () => {
+      if (cart.length === 0) return alert("Your cart is empty!");
+
+      let message = "🛍️ *New Order from Smart Shop*%0A─────────────────%0A%0A";
+      
+      message += `*Location:* Nigeria%0A`;
+      message += `*Time:* ${new Date().toLocaleString()}%0A%0A`;
+      message += "*Ordered Items:*%0A─────────────────%0A%0A";
+
+      let total = 0;
+      cart.forEach((item, index) => {
+        const itemTotal = item.price * item.quantity;
+        total += itemTotal;
+        message += `${index + 1}. *${item.name}*%0A`;
+        message += `   Qty: ${item.quantity} × ₦${item.price.toLocaleString()}%0A`;
+        message += `   Subtotal: ₦${itemTotal.toLocaleString()}%0A%0A`;
+      });
+
+      message += `─────────────────%0A*Grand Total: ₦${total.toLocaleString()}*%0A%0A`;
+      message += "Please confirm this order. Thank you! 🙏";
+
+      const phoneNumber = "2349070140698";   // ← CHANGE TO YOUR NUMBER
+
+      window.open(`https://wa.me/${phoneNumber}?text=${message}`, '_blank');
+
+      cart = [];
+      saveCart();
+      updateCart();
+
+      document.getElementById('thankYouModal').classList.add('show');
+      document.getElementById('cartSidebar').classList.remove('open');
+      document.getElementById('overlay').classList.remove('show');
+    });
+
+    function closeModal() {
+      document.getElementById('thankYouModal').classList.remove('show');
+    }
+
+    // Filter Products
+    function filterProducts() {
+      const searchTerm = document.getElementById('searchInput').value.toLowerCase().trim();
+      const activeCategory = document.querySelector('.cat-btn.active').dataset.category;
+
+      let filtered = products;
+
+      if (activeCategory !== 'all') {
+        filtered = filtered.filter(p => p.category === activeCategory);
+      }
+
+      if (searchTerm) {
+        filtered = filtered.filter(p => p.name.toLowerCase().includes(searchTerm));
+      }
+
+      renderProducts(filtered);
+    }
+
+    // Cart Controls
     const cartSidebar = document.getElementById('cartSidebar');
     const overlay = document.getElementById('overlay');
     const cartIcon = document.getElementById('cartIcon');
@@ -212,47 +283,15 @@
       overlay.classList.remove('show');
     });
 
-    // Place Order via WhatsApp
-    document.getElementById('placeOrderBtn').addEventListener('click', () => {
-      if (cart.length === 0) {
-        alert("Your cart is empty!");
-        return;
-      }
-
-      let message = "🛍️ *New Order from ShopHub*%0A%0A";
-      message += "*Customer:* Mbagwu%0A";
-      message += "*Location:* Lagos, Nigeria%0A%0A";
-      message += "*Order Details:*%0A";
-
-      let total = 0;
-
-      cart.forEach(item => {
-        const itemTotal = item.price * item.quantity;
-        total += itemTotal;
-        message += `• ${item.name}%0A`;
-        message += `   Qty: ${item.quantity} × ₦${item.price.toLocaleString()} = ₦${itemTotal.toLocaleString()}%0A%0A`;
-      });
-
-      message += `*Total: ₦${total.toLocaleString()}*%0A%0A`;
-      message += "Please confirm my order!";
-
-      // Replace with your WhatsApp number
-      const phoneNumber = "2349070140698"; // ← CHANGE THIS TO YOUR NUMBER (with country code)
-
-      const whatsappURL = `https://wa.me/${phoneNumber}?text=${message}`;
-      
-      // Open WhatsApp
-      window.open(whatsappURL, '_blank');
-
-      // Optional: Clear cart after ordering
-      // cart = [];
-      // updateCart();
-      // cartSidebar.classList.remove('open');
-      // overlay.classList.remove('show');
-    });
+    // Search Input
+    document.getElementById('searchInput').addEventListener('input', filterProducts);
 
     // Initialize
-    renderProducts();
+    loadData();
+    loadCart();
+    renderCategories();
+    renderProducts(products);
+    updateCart();
   </script>
 </body>
 </html>
