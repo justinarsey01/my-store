@@ -8,35 +8,31 @@
 </head>
 <body>
 
- <!-- Login Screen -->
+ <!-- Login -->
   <div id="loginScreen">
     <div class="login-container">
       <h1>🔐 Admin Login</h1>
-      <p style="margin:15px 0 25px; color:#555;">ShopHub Management</p>
-      
-      <input type="text" id="username" placeholder="Username" value="admin"><br>
-      <input type="password" id="password" placeholder="Password"><br><br>
-      
-      <button onclick="login()" class="btn-primary" style="width:100%; padding:14px;">Login</button>
-      <p style="margin-top:20px; font-size:0.9rem; color:#777;">
-        Default: <strong>admin</strong> / <strong>123456</strong>
-      </p>
+      <input type="text" id="username" placeholder="Username" value="admin"><br><br>
+      <input type="password" id="password" placeholder="Password" value="123456"><br><br>
+      <button onclick="login()" class="btn-primary" style="width:100%;padding:14px;">Login</button>
+      <p style="margin-top:15px; color:#777;">Default: admin / 123456</p>
     </div>
   </div>
 
-  <!-- Main Admin Panel (Hidden by default) -->
+  <!-- Admin Panel -->
   <div id="adminPanel" class="hidden">
-    <h1>🛠️ ShopHub Admin Panel </h1>
+    <header><h1>🛠️ ShopHub Admin Panel</h1></header>
     
     <div class="container">
       <a href="index.html" style="color:#3498db;">← Back to Store</a>
 
       <div class="admin-panel">
-        <!-- Add Product Form -->
+        <!-- Form -->
         <div class="card">
           <h2 id="formTitle">Add New Product</h2>
           <form id="productForm">
-            <input type="hidden" id="editId">
+            <input type="hidden" id="editIndex">
+
             <div class="form-group">
               <label>Product Name</label>
               <input type="text" id="name" required>
@@ -47,11 +43,9 @@
             </div>
             <div class="form-group">
               <label>Image</label>
-              <div class="image-upload-area" id="uploadArea" style="border:2px dashed #3498db;padding:20px;text-align:center;cursor:pointer;">
-                Click to upload image
-                <input type="file" id="imageInput" accept="image/*" hidden>
-              </div>
-              <img id="imagePreview" style="max-width:200px;margin:10px auto;display:none;border-radius:8px;">
+              <div class="image-upload-area" id="uploadArea">Click to upload image</div>
+              <input type="file" id="imageInput" accept="image/*" hidden>
+              <img id="imagePreview" class="image-preview">
             </div>
             <div class="form-group">
               <label>Category</label>
@@ -61,20 +55,26 @@
           </form>
         </div>
 
-        <!-- Products + JSON -->
+        <!-- Products List -->
         <div class="card">
           <h2>All Products (<span id="productCount">0</span>)</h2>
-          <table style="width:100%; border-collapse:collapse;">
+          <table>
             <thead>
-              <tr><th>Image</th><th>Name</th><th>Price</th><th>Category</th><th>Actions</th></tr>
+              <tr>
+                <th>Image</th>
+                <th>Name</th>
+                <th>Price</th>
+                <th>Category</th>
+                <th>Actions</th>
+              </tr>
             </thead>
             <tbody id="tableBody"></tbody>
           </table>
 
           <hr style="margin:20px 0">
           <h3>Copy Updated JSON</h3>
-          <textarea id="jsonOutput" rows="10" style="width:100%;font-family:monospace;"></textarea>
-          <button onclick="copyJSON()" class="btn-success" style="margin-top:10px;">Copy JSON</button>
+          <textarea id="jsonOutput" rows="12" style="width:100%; font-family:monospace;"></textarea>
+          <button onclick="copyJSON()" class="btn-success">Copy JSON</button>
         </div>
       </div>
     </div>
@@ -83,24 +83,21 @@
   <div class="notification" id="notification"></div>
 
   <script>
-    // ==================== LOGIN CREDENTIALS ====================
     const ADMIN_USERNAME = "admin";
-    const ADMIN_PASSWORD = "123456";   // Change this to something secure
+    const ADMIN_PASSWORD = "123456";
 
     let products = [];
     let categories = [];
     let currentImage = "";
 
     function login() {
-      const username = document.getElementById('username').value.trim();
-      const password = document.getElementById('password').value.trim();
-
-      if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
+      if (document.getElementById('username').value === ADMIN_USERNAME && 
+          document.getElementById('password').value === ADMIN_PASSWORD) {
         document.getElementById('loginScreen').classList.add('hidden');
         document.getElementById('adminPanel').classList.remove('hidden');
         loadData();
       } else {
-        showNotification("Incorrect username or password", "red");
+        showNotification("Wrong username or password", "red");
       }
     }
 
@@ -114,14 +111,13 @@
         renderCategorySelect();
         updateJSONOutput();
       } catch (e) {
-        showNotification("Could not load products.json", "red");
+        showNotification("Failed to load products.json", "red");
       }
     }
 
-    // Rest of the functions (same as previous version)
     function renderCategorySelect() {
       const select = document.getElementById('category');
-      select.innerHTML = '';
+      select.innerHTML = "";
       categories.forEach(cat => {
         const opt = document.createElement('option');
         opt.value = cat;
@@ -135,16 +131,16 @@
       tbody.innerHTML = '';
       document.getElementById('productCount').textContent = products.length;
 
-      products.forEach((p, i) => {
+      products.forEach((product, index) => {
         const row = document.createElement('tr');
         row.innerHTML = `
-          <td><img src="${p.image}" style="width:50px;height:50px;object-fit:cover;border-radius:4px;"></td>
-          <td>${p.name}</td>
-          <td>₦${p.price.toLocaleString()}</td>
-          <td>${p.category}</td>
+          <td><img src="${product.image}" style="width:60px;height:60px;object-fit:cover;border-radius:6px;"></td>
+          <td>${product.name}</td>
+          <td>₦${product.price.toLocaleString()}</td>
+          <td>${product.category}</td>
           <td>
-            <button onclick="editProduct(${i})" style="background:#f39c12;color:white;padding:4px 8px;">Edit</button>
-            <button onclick="deleteProduct(${i})" style="background:#e74c3c;color:white;padding:4px 8px;">Delete</button>
+            <button onclick="editProduct(${index})" style="background:#f39c12;color:white;margin-right:5px;">Edit</button>
+            <button onclick="deleteProduct(${index})" style="background:#e74c3c;color:white;">Delete</button>
           </td>
         `;
         tbody.appendChild(row);
@@ -153,12 +149,11 @@
 
     // Image Upload
     document.getElementById('uploadArea').addEventListener('click', () => document.getElementById('imageInput').click());
-
     document.getElementById('imageInput').addEventListener('change', (e) => {
       const file = e.target.files[0];
       if (!file) return;
       const reader = new FileReader();
-      reader.onload = ev => {
+      reader.onload = (ev) => {
         currentImage = ev.target.result;
         document.getElementById('imagePreview').src = currentImage;
         document.getElementById('imagePreview').style.display = 'block';
@@ -167,52 +162,75 @@
     });
 
     // Form Submit
-    document.getElementById('productForm').addEventListener('submit', (e) => {
+    document.getElementById('productForm').addEventListener('submit', function(e) {
       e.preventDefault();
-      // ... (same logic as before - I kept it short)
       const name = document.getElementById('name').value.trim();
       const price = parseInt(document.getElementById('price').value);
       const category = document.getElementById('category').value;
+      const editIndex = document.getElementById('editIndex').value;
 
-      if (!name || !price || !category) return showNotification("Fill all fields", "red");
+      if (!name || !price || !category) return showNotification("Please fill all fields", "red");
 
-      const newProduct = {
+      const productData = {
         id: Date.now(),
-        name, price, category,
-        image: currentImage || "https://picsum.photos/id/60/400/300"
+        name: name,
+        price: price,
+        image: currentImage || "https://picsum.photos/id/60/400/300",
+        category: category
       };
 
-      const editId = document.getElementById('editId').value;
-      if (editId) {
-        const index = products.findIndex(p => p.id == editId);
-        if (index !== -1) products[index] = newProduct;
+      if (editIndex !== "") {
+        products[editIndex] = productData;
+        showNotification("Product updated successfully!", "green");
       } else {
-        products.push(newProduct);
+        products.push(productData);
+        showNotification("Product added successfully!", "green");
       }
 
       updateJSONOutput();
       renderTable();
       resetForm();
-      showNotification(editId ? "Product updated!" : "Product added successfully!", "green");
     });
 
     function resetForm() {
       document.getElementById('productForm').reset();
       document.getElementById('imagePreview').style.display = 'none';
+      document.getElementById('editIndex').value = "";
       currentImage = "";
+      document.getElementById('formTitle').textContent = "Add New Product";
     }
 
-    window.editProduct = function(index) { /* same as before */ };
-    window.deleteProduct = function(index) { /* same as before */ };
+    window.editProduct = function(index) {
+      const p = products[index];
+      document.getElementById('editIndex').value = index;
+      document.getElementById('name').value = p.name;
+      document.getElementById('price').value = p.price;
+      document.getElementById('category').value = p.category;
+      
+      document.getElementById('imagePreview').src = p.image;
+      document.getElementById('imagePreview').style.display = 'block';
+      currentImage = p.image;
+
+      document.getElementById('formTitle').textContent = "Edit Product";
+    };
+
+    window.deleteProduct = function(index) {
+      if (confirm("Are you sure you want to delete this product?")) {
+        products.splice(index, 1);
+        updateJSONOutput();
+        renderTable();
+        showNotification("Product deleted", "red");
+      }
+    };
 
     function updateJSONOutput() {
-      const data = { products, categories };
+      const data = { products: products, categories: categories };
       document.getElementById('jsonOutput').value = JSON.stringify(data, null, 2);
     }
 
     function copyJSON() {
       navigator.clipboard.writeText(document.getElementById('jsonOutput').value);
-      showNotification("JSON copied to clipboard!", "green");
+      showNotification("JSON copied! Paste into products.json", "green");
     }
 
     function showNotification(msg, color) {
@@ -223,10 +241,8 @@
       setTimeout(() => n.style.display = 'none', 3000);
     }
 
-    // Allow Enter key on password
-    document.getElementById('password').addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') login();
-    });
+    // Login with Enter key
+    document.getElementById('password').addEventListener('keypress', e => { if(e.key === "Enter") login(); });
   </script>
 </body>
 </html>
